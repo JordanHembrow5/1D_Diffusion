@@ -4,3 +4,5 @@ project(1D_Diffusion)
 set(CMAKE_CXX_STANDARD 17)
 
 add_executable(1D_Diffusion main.cpp Parameters.h)
+
+#target_link_libraries(1D_Diffusion gsl gslcblas)
