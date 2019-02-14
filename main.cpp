@@ -1,14 +1,24 @@
-// TODO: Add an active transport feature, which delivers cargo to a small range at a constant rate
+// TODO: Adjust active transport so it only delivers what is needed to maintain a maximum (in params) at x=0
+
 
 #include <iostream>
 #include <cmath>
 #include <array>
 #include <fstream>
-//#include <gsl/gsl_sf_bessel.h>
+#include <algorithm>
 #include "Parameters.h"
 
+
+/* Global variables (yuck) are suffixed with 'G', don't mess with them */
+double stream_seg_remainder_G = 0.0;
+
+
 std::string outputResults(const std::array<double,2*X_ELEMENTS> &conc, const int time_step);
+void runDiffusion(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &rho_old);
+void cytoplasmicStream(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &stream);
+std::array<double, 2*X_ELEMENTS> visibleConc(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &stream);
 void diffusionSolver();
+
 
 int main() {
 
@@ -23,18 +33,16 @@ std::string outputResults(const std::array<double,2*X_ELEMENTS> &conc, const int
     std::string filename = "data/diffusion_1D_";
     std::string extension = ".txt";
     std::string number;
-    if(time_step < 10) {
+
+    if(time_step < 10)
         number = "000" + std::to_string(time_step);
-    }
-    else if(time_step < 100) {
+    else if(time_step < 100)
         number = "00" + std::to_string(time_step);
-    }
-    else if(time_step < 1000) {
+    else if(time_step < 1000)
         number = "0" + std::to_string(time_step);
-    }
-    else {
+    else
         number = std::to_string(time_step);
-    }
+
     filename = filename + number + extension;
 
     /* Open file with sanity checking */
@@ -52,34 +60,71 @@ std::string outputResults(const std::array<double,2*X_ELEMENTS> &conc, const int
     return filename;
 }
 
+void setupSystem(std::array<double,2*X_ELEMENTS> &rho_old, std::array<double,2*X_ELEMENTS> &stream) {
+    for(int i = 0; i < 2*X_ELEMENTS; i++) {
+        rho_old[i] = iniDist((i - X_ELEMENTS)*DX);
+    }
+    std::system((PY_SCRIPT + outputResults(rho_old,0) + " 0").c_str());     // Call the plotting script at t=0
+    for(int i = 0; i < (int)STREAM_VEL*DT/DX; i++) {
+        stream[i] = STREAM_CONC;
+    }
+}
+
+/* Update the system a single time step */
+void runDiffusion(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &rho_old) {
+    for(int x = 0; x < 2*X_ELEMENTS - 1; x++) {
+        rho[x] = rho_old[x] + ALPHA*(rho_old[x-1] - 2*rho_old[x] + rho_old[x+1]);
+    }
+    rho[0] = rho[1], rho[2*X_ELEMENTS - 1] = rho[2*X_ELEMENTS - 2]; // Update boundaries
+}
+
+/* Model delivery of vesicles on cytoplasmic stream. They come from the left (-x) */
+void cytoplasmicStream(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &stream) {
+    double dist_moved = STREAM_VEL*DT;
+    int x_segs_travelled = (int)(dist_moved/DX);
+    stream_seg_remainder_G += dist_moved/DX - x_segs_travelled;
+    if(stream_seg_remainder_G >= 1) {
+        x_segs_travelled++;
+        stream_seg_remainder_G -= 1;
+    }
+    for(int i = 0; i < 2*X_ELEMENTS - x_segs_travelled; i++) {
+        stream[i + x_segs_travelled] = stream[i];
+    }
+    for(int i = 0; i < x_segs_travelled; i++) {
+        stream[i] = STREAM_CONC;
+    }
+
+    int delivery_zone = (int)(DELIVERY_RADIUS/DX);
+    for(int i = X_ELEMENTS - delivery_zone; i < X_ELEMENTS + delivery_zone; i++) {
+        rho[i] += stream[i];
+        stream[i] = 0.0;
+    }
+}
+
+/* Despite the stream being bound (and not diffusing) it will still fluoresce) */
+std::array<double, 2*X_ELEMENTS> visibleConc(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &stream) {
+    std::array<double,2*X_ELEMENTS> vis_conc = {0};
+    for(int i = 0; i < 2*X_ELEMENTS; i++) {
+        vis_conc[i] = rho[i] + stream[i];
+    }
+    return vis_conc;
+}
+
 void diffusionSolver() {
 
     /* Set up starting conditions, t = 0 */
-    std::array<double,2*X_ELEMENTS> conc_old = {0}, conc = {0};
-    for(int i = 0; i < 2*X_ELEMENTS; i++) {
-        conc_old[i] = iniDist((i - X_ELEMENTS)*DX);
-    }
-
-    std::string command_line = PY_SCRIPT + outputResults(conc_old,0) + " 0";
-    std::system(command_line.c_str());
+    std::array<double,2*X_ELEMENTS> rho_old = {0}, rho = {0}, stream = {0};
+    setupSystem(rho_old, stream);
 
     for(int t = 1; t <= T_ELEMENTS; t++) {
+        runDiffusion(rho, rho_old);
 
-        /* Update the system a single time step */
-        for(int x = 0; x < 2*X_ELEMENTS - 1; x++) {
-            conc[x] = conc_old[x] + ALPHA*(conc_old[x-1] - 2*conc_old[x] + conc_old[x+1]);
-        }
-        conc[0] = conc[1], conc[2*X_ELEMENTS - 1] = conc[2*X_ELEMENTS - 2]; // Update boundaries
-
-        /* Output the results to a file and call the plotting script */
+        /* Output the results to a file and call the plotting script only after a certain number of steps */
         if(t % STEPS_BETWEEN_PLOTS == 0) {
-            command_line = PY_SCRIPT + outputResults(conc_old,t/STEPS_BETWEEN_PLOTS) + " " + std::to_string(t*DT);
-            std::system(command_line.c_str());
+            std::system((PY_SCRIPT + outputResults(visibleConc(rho, stream),t/STEPS_BETWEEN_PLOTS) + " " + std::to_string(t*DT)).c_str());
         }
+        cytoplasmicStream(rho, stream);   //When do I add this, before or after copy()?
+        std::copy(rho.begin(), rho.end(), rho_old.begin());
 
-        for(int x = 0; x < 2*X_ELEMENTS; x++) {
-            conc_old[x] = conc[x];
-        }
     }
-
 }

@@ -6,6 +6,10 @@
 
 #define DIFFUSION_CONST 0.003
 
+#define STREAM_VEL 0.01
+#define STREAM_CONC 0.1
+#define DELIVERY_RADIUS 1
+
 #define X_SIZE 10
 #define X_ELEMENTS 100
 #define DX ((double)X_SIZE/(double)X_ELEMENTS)
@@ -28,4 +32,5 @@
 
 //#define iniDist(x) (int)(x>=0)                        //Step function at x=0
 //#define iniDist(x) (int)(abs(x)<=1)                     //Top-hat function at for -1 < x < 1
-#define iniDist(x) ((int)(abs(x)))%2
+//#define iniDist(x) ((int)(abs(x)))%2                  // Comb stuff
+#define iniDist(x) (0.2*STREAM_CONC)                    // Just bleached
