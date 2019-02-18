@@ -8,7 +8,8 @@
 
 #define STREAM_VEL 0.01
 #define STREAM_CONC 0.1
-#define DELIVERY_RADIUS 1
+#define DELIVERY_RADIUS 1.0
+#define MAXIMUM_CONC (1.0 - STREAM_CONC)
 
 #define X_SIZE 10
 #define X_ELEMENTS 100
@@ -26,7 +27,7 @@
 //#define iniDist(x) (exp(-(x*x)/(2*STDEV*STDEV)))
 
 #define PY_SCRIPT "python3 ../DiffusionPlot.py "
-#define TIMELAPSE "ffmpeg -f image2 -r 10 -i img/diffusion_1D_%04d.png -vcodec mpeg4 -y Diffusion.mp4"
+#define TIMELAPSE "ffmpeg -f image2 -r 10 -i img/diffusion_1D_%04d.png -vcodec mpeg4 -y Diffusion.mp4 -hide_banner -loglevel panic"
 
 #define STEPS_BETWEEN_PLOTS 20
 

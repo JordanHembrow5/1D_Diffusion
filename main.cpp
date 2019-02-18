@@ -17,6 +17,7 @@ std::string outputResults(const std::array<double,2*X_ELEMENTS> &conc, const int
 void runDiffusion(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &rho_old);
 void cytoplasmicStream(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &stream);
 std::array<double, 2*X_ELEMENTS> visibleConc(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &stream);
+void progressBar(const int current_step);
 void diffusionSolver();
 
 
@@ -98,6 +99,12 @@ void cytoplasmicStream(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2
     for(int i = X_ELEMENTS - delivery_zone; i < X_ELEMENTS + delivery_zone; i++) {
         rho[i] += stream[i];
         stream[i] = 0.0;
+
+        double conc_above_max = rho[i] - MAXIMUM_CONC;
+        if(conc_above_max > 0.0) {
+            rho[i] -= conc_above_max;
+            stream[i] += conc_above_max;
+        }
     }
 }
 
@@ -108,6 +115,21 @@ std::array<double, 2*X_ELEMENTS> visibleConc(std::array<double,2*X_ELEMENTS> &rh
         vis_conc[i] = rho[i] + stream[i];
     }
     return vis_conc;
+}
+
+void progressBar(const int current_step) {
+        int bar_width = 70;
+        double progress = (double)current_step/(double)T_ELEMENTS;
+
+        std::cout << "[";
+        int pos = (int)(bar_width * progress);
+        for (int i = 0; i < bar_width; ++i) {
+            if (i < pos) std::cout << "=";
+            else if (i == pos) std::cout << ">";
+            else std::cout << " ";
+        }
+        std::cout << "] " << int(progress * 100.0) << " %\r";
+        std::cout.flush();
 }
 
 void diffusionSolver() {
@@ -123,8 +145,10 @@ void diffusionSolver() {
         if(t % STEPS_BETWEEN_PLOTS == 0) {
             std::system((PY_SCRIPT + outputResults(visibleConc(rho, stream),t/STEPS_BETWEEN_PLOTS) + " " + std::to_string(t*DT)).c_str());
         }
-        cytoplasmicStream(rho, stream);   //When do I add this, before or after copy()?
+        cytoplasmicStream(rho, stream);
         std::copy(rho.begin(), rho.end(), rho_old.begin());
 
+        progressBar(t);
     }
+    std::cout << std::endl;
 }
