@@ -1,4 +1,4 @@
-// TODO: Adjust active transport so it only delivers what is needed to maintain a maximum (in params) at x=0
+// TODO: Split main.cpp into two separate files
 
 
 #include <iostream>
@@ -6,7 +6,7 @@
 #include <array>
 #include <fstream>
 #include <algorithm>
-#include "Parameters.h"
+#include "prms/Parameters.h"
 
 
 /* Global variables (yuck) are suffixed with 'G', don't mess with them */
@@ -23,6 +23,7 @@ void diffusionSolver();
 
 int main() {
 
+    std::system("rm data/*.txt\nrm img/*.png");
     diffusionSolver();
     std::system(TIMELAPSE);
     return 0;
@@ -88,7 +89,9 @@ void cytoplasmicStream(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2
         x_segs_travelled++;
         stream_seg_remainder_G -= 1;
     }
-    for(int i = 0; i < 2*X_ELEMENTS - x_segs_travelled; i++) {
+    /* Looping in the opposite direction of the stream so to ensure that no new data gets interpreted as old */
+    //for(int i = 0; i < 2*X_ELEMENTS - x_segs_travelled; i++) {
+    for(int i = 2*X_ELEMENTS - (x_segs_travelled + 1); i >= 0; i--) {
         stream[i + x_segs_travelled] = stream[i];
     }
     for(int i = 0; i < x_segs_travelled; i++) {
