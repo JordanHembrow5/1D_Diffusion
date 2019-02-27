@@ -18,6 +18,15 @@ file(GLOB_RECURSE main ${DIFFUSION_CODE_PATH}/main.cpp)
 #   -- Set Standard --
 set(CMAKE_CXX_STANDARD 17)
 
+#   -- Debug / Release Flags --
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message("Building debug binary.")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2 -D_GLIBCXX_DEBUG")
+else ()
+    message("Building release binary.")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+endif ()
+
 
 
 #   == EXECUTABLE CREATION ==
@@ -30,3 +39,8 @@ add_executable(1D_Diffusion ${SOURCE_FILES})
 target_include_directories(1D_Diffusion PUBLIC ${DIFFUSION_CODE_PATH}/prms)
 target_include_directories(1D_Diffusion PUBLIC ${DIFFUSION_CODE_PATH}/clss)
 target_include_directories(1D_Diffusion PUBLIC ${DIFFUSION_CODE_PATH}/hdrs)
+
+
+#  == Mojave weirdness ==
+include_directories(SYSTEM "/usr/local/include")
+link_directories(SYSTEM "/usr/local/lib")

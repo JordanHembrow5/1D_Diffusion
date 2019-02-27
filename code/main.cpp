@@ -1,11 +1,15 @@
 // TODO: Split main.cpp into two separate files
+// TODO: Put some physical units and values in
+// TODO: Add probabilistic chance of PEN3 delivery from cytoplasmic stream
 
-
+//#define _USE_MATH_DEFINES
 #include <iostream>
 #include <cmath>
 #include <array>
+//#include <cstdbool>
 #include <fstream>
 #include <algorithm>
+#include <random>
 #include "prms/Parameters.h"
 
 
@@ -15,6 +19,9 @@ double stream_seg_remainder_G = 0.0;
 
 std::string outputResults(const std::array<double,2*X_ELEMENTS> &conc, const int time_step);
 void runDiffusion(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &rho_old);
+double gaussian(double x, double mean, double stddev, double amp);
+double RNG(double min, double max);
+bool streamDelivers(int current_pos_element);
 void cytoplasmicStream(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &stream);
 std::array<double, 2*X_ELEMENTS> visibleConc(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &stream);
 void progressBar(const int current_step);
@@ -23,7 +30,7 @@ void diffusionSolver();
 
 int main() {
 
-    std::system("rm data/*.txt\nrm img/*.png");
+    std::system("rm data/*.txt\nrm img/*.png");     // Clear previous data so that ffmpeg doesn't get confused
     diffusionSolver();
     std::system(TIMELAPSE);
     return 0;
@@ -80,6 +87,31 @@ void runDiffusion(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_EL
     rho[0] = rho[1], rho[2*X_ELEMENTS - 1] = rho[2*X_ELEMENTS - 2]; // Update boundaries
 }
 
+/* returns the values of f(x) for the function 'f' being a gaussian */
+double gaussian(double x, double mean, double stddev, double amp) {
+    double prefactor = amp/sqrt(2.0*M_PI*pow(stddev,2));
+    double exponential = exp(-pow(x - mean, 2)/(2*pow(stddev,2)));
+    return prefactor*exponential;
+}
+
+/* Returns a random number in the range [min, max) */
+double RNG(double min, double max) {
+    std::random_device rd;  //Will be used to obtain a seed for the random number engine
+    std::mt19937 number(rd()); //Standard mersenne_twister_engine seeded with rd()
+    std::uniform_real_distribution<> distribution(min, max);
+    return distribution(number);
+}
+
+bool streamDelivers(int current_pos_element) {
+    double position = DX*(current_pos_element - X_ELEMENTS);    // simulates around x=0 so total elements is 2*X_ELEMENTS
+    double random = RNG(0.0, GAUSSIAN_AMP);
+    double delivery_prob = gaussian(position, GAUSSIAN_MEAN, DELIVERY_RADIUS, GAUSSIAN_AMP);
+    if(delivery_prob > random) {
+        return true;
+    }
+    return false;
+}
+
 /* Model delivery of vesicles on cytoplasmic stream. They come from the left (-x) */
 void cytoplasmicStream(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &stream) {
     double dist_moved = STREAM_VEL*DT;
@@ -90,7 +122,6 @@ void cytoplasmicStream(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2
         stream_seg_remainder_G -= 1;
     }
     /* Looping in the opposite direction of the stream so to ensure that no new data gets interpreted as old */
-    //for(int i = 0; i < 2*X_ELEMENTS - x_segs_travelled; i++) {
     for(int i = 2*X_ELEMENTS - (x_segs_travelled + 1); i >= 0; i--) {
         stream[i + x_segs_travelled] = stream[i];
     }
@@ -98,15 +129,23 @@ void cytoplasmicStream(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2
         stream[i] = STREAM_CONC;
     }
 
-    int delivery_zone = (int)(DELIVERY_RADIUS/DX);
-    for(int i = X_ELEMENTS - delivery_zone; i < X_ELEMENTS + delivery_zone; i++) {
-        rho[i] += stream[i];
-        stream[i] = 0.0;
+    //int delivery_zone = (int)(DELIVERY_RADIUS/DX);
+    //for(int i = X_ELEMENTS - delivery_zone; i < X_ELEMENTS + delivery_zone; i++) {
+    for(int i = 0; i < 2*X_ELEMENTS; i++) {
+        if(streamDelivers(i)) {
+            if (stream[i] < STREAM_DELIVERY_RATE) {
+                rho[i] += stream[i];
+                stream[i] = 0.0;
+            } else {
+                rho[i] += STREAM_DELIVERY_RATE;
+                stream[i] -= STREAM_DELIVERY_RATE;
+            }
 
-        double conc_above_max = rho[i] - MAXIMUM_CONC;
-        if(conc_above_max > 0.0) {
-            rho[i] -= conc_above_max;
-            stream[i] += conc_above_max;
+            double conc_above_max = rho[i] - MAXIMUM_CONC;
+            if (conc_above_max > 0.0) {
+                rho[i] -= conc_above_max;
+                stream[i] += conc_above_max;
+            }
         }
     }
 }
