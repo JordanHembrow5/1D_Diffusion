@@ -1,12 +1,9 @@
 // TODO: Split main.cpp into two separate files
 // TODO: Put some physical units and values in
-// TODO: Add probabilistic chance of PEN3 delivery from cytoplasmic stream
 
-//#define _USE_MATH_DEFINES
 #include <iostream>
 #include <cmath>
 #include <array>
-//#include <cstdbool>
 #include <fstream>
 #include <algorithm>
 #include <random>
@@ -26,13 +23,13 @@ void cytoplasmicStream(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2
 std::array<double, 2*X_ELEMENTS> visibleConc(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &stream);
 void progressBar(const int current_step);
 void diffusionSolver();
+void plotResults();
 
 
 int main() {
-
     std::system("rm data/*.txt\nrm img/*.png");     // Clear previous data so that ffmpeg doesn't get confused
     diffusionSolver();
-    std::system(TIMELAPSE);
+    plotResults();
     return 0;
 }
 
@@ -73,7 +70,7 @@ void setupSystem(std::array<double,2*X_ELEMENTS> &rho_old, std::array<double,2*X
     for(int i = 0; i < 2*X_ELEMENTS; i++) {
         rho_old[i] = iniDist((i - X_ELEMENTS)*DX);
     }
-    std::system((PY_SCRIPT + outputResults(rho_old,0) + " 0").c_str());     // Call the plotting script at t=0
+    outputResults(rho_old,0);
     for(int i = 0; i < (int)STREAM_VEL*DT/DX; i++) {
         stream[i] = STREAM_CONC;
     }
@@ -129,8 +126,6 @@ void cytoplasmicStream(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2
         stream[i] = STREAM_CONC;
     }
 
-    //int delivery_zone = (int)(DELIVERY_RADIUS/DX);
-    //for(int i = X_ELEMENTS - delivery_zone; i < X_ELEMENTS + delivery_zone; i++) {
     for(int i = 0; i < 2*X_ELEMENTS; i++) {
         if(streamDelivers(i)) {
             if (stream[i] < STREAM_DELIVERY_RATE) {
@@ -177,6 +172,7 @@ void progressBar(const int current_step) {
 void diffusionSolver() {
 
     /* Set up starting conditions, t = 0 */
+    std::cout << "Running simulation..." << std::endl;
     std::array<double,2*X_ELEMENTS> rho_old = {0}, rho = {0}, stream = {0};
     setupSystem(rho_old, stream);
 
@@ -185,12 +181,20 @@ void diffusionSolver() {
 
         /* Output the results to a file and call the plotting script only after a certain number of steps */
         if(t % STEPS_BETWEEN_PLOTS == 0) {
-            std::system((PY_SCRIPT + outputResults(visibleConc(rho, stream),t/STEPS_BETWEEN_PLOTS) + " " + std::to_string(t*DT)).c_str());
+            outputResults(visibleConc(rho, stream),t/STEPS_BETWEEN_PLOTS);
         }
         cytoplasmicStream(rho, stream);
         std::copy(rho.begin(), rho.end(), rho_old.begin());
 
         progressBar(t);
     }
-    std::cout << std::endl;
+}
+
+void plotResults() {
+    std::cout << std::endl << "Plotting results..." << std::endl;
+    double time_between_plots = DT*STEPS_BETWEEN_PLOTS;
+    int files_to_plot = (T_ELEMENTS/STEPS_BETWEEN_PLOTS) + 1;
+    std::string plotting = PLOT_ALL + std::to_string(time_between_plots) + " " + std::to_string(files_to_plot);
+    std::system(plotting.c_str());
+    std::system(TIMELAPSE);
 }

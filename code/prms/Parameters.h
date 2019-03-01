@@ -10,7 +10,7 @@
 #define STREAM_CONC 0.02
 #define DELIVERY_RADIUS 1.5
 #define MAXIMUM_CONC (1.0 - STREAM_CONC)
-#define STREAM_DELIVERY_RATE ((1.0/6.0)*STREAM_CONC)
+#define STREAM_DELIVERY_RATE ((1.0/8.0)*STREAM_CONC)
 
 #define X_SIZE 10
 #define X_ELEMENTS 100
@@ -33,10 +33,10 @@ const bool alpha_is_unstable = (ALPHA >= 0.5);
 #define GAUSSIAN_AMP 1.0
 #define GAUSSIAN_MEAN 0.0
 
-#define PY_SCRIPT "python3 ../code/DiffusionPlot.py "
-#define TIMELAPSE "ffmpeg -f image2 -r 10 -i img/diffusion_1D_%04d.png -vcodec mpeg4 -b:v 25M -y Diffusion.mp4 -hide_banner -loglevel panic"
+#define PLOT_ALL "python3 ../code/DiffusionPlotAll.py data/ "
+#define TIMELAPSE "ffmpeg -f image2 -r 10 -i img/diffusion_1D_%04d.png -vcodec mpeg4 -b:v 2M -y Diffusion.mp4 -hide_banner -loglevel panic"
 
-#define STEPS_BETWEEN_PLOTS 30
+#define STEPS_BETWEEN_PLOTS 3
 
 /* Initial distribution of particles */
 #define iniDist(x) ((MAXIMUM_CONC/5.0)*(abs(x) > 8.0))  // Just bleached
