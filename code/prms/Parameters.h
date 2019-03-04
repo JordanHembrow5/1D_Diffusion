@@ -10,7 +10,7 @@
 #define STREAM_CONC 0.05
 #define DELIVERY_RADIUS 1.5
 #define MAXIMUM_CONC (1.0 - STREAM_CONC)
-#define STREAM_DELIVERY_RATE 0.002      /* conc per second delivered */
+#define STREAM_DELIVERY_RATE 0.003      /* conc per second delivered */
 
 #define X_SIZE 10.0
 #define X_ELEMENTS 100

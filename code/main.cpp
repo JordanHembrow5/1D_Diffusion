@@ -1,5 +1,4 @@
 // TODO: Split main.cpp into two separate files
-// TODO: Put some physical units and values in
 
 #include <iostream>
 #include <cmath>
@@ -142,12 +141,12 @@ void cytoplasmicStream(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2
     double stream_delivery_vol = STREAM_DELIVERY_RATE * DT;
     for(int i = 0; i < 2*X_ELEMENTS; i++) {
         if(streamDelivers(i)) {
-            if (stream[i] < STREAM_DELIVERY_RATE) {
+            if (stream[i] < stream_delivery_vol) {
                 rho[i] += stream[i];
                 stream[i] = 0.0;
             } else {
-                rho[i] += STREAM_DELIVERY_RATE;
-                stream[i] -= STREAM_DELIVERY_RATE;
+                rho[i] += stream_delivery_vol;
+                stream[i] -= stream_delivery_vol;
             }
 
             double conc_above_max = rho[i] - MAXIMUM_CONC;
