@@ -14,6 +14,7 @@
 double stream_seg_remainder_G = 0.0;
 
 
+void testStability();
 std::string outputResults(const std::array<double,2*X_ELEMENTS> &conc, const int time_step);
 void runDiffusion(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2*X_ELEMENTS> &rho_old);
 double gaussian(double x, double mean, double stddev, double amp);
@@ -27,10 +28,21 @@ void plotResults();
 
 
 int main() {
+    testStability();
     std::system("rm data/*.txt\nrm img/*.png");     // Clear previous data so that ffmpeg doesn't get confused
     diffusionSolver();
     plotResults();
     return 0;
+}
+
+/* Test stability of alpha. Results are meaningless if it is unstable */
+void testStability() {
+    const bool alpha_is_unstable = (bool)(ALPHA >= 0.5);
+    std::string input = "N";
+    if(alpha_is_unstable) {
+        std::cerr << "Error! Alpha is unstable! (" << ALPHA << ")" << std::endl;
+        exit(2);
+    }
 }
 
 std::string outputResults(const std::array<double,2*X_ELEMENTS> &conc, const int time_step) {
@@ -118,6 +130,7 @@ void cytoplasmicStream(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2
         x_segs_travelled++;
         stream_seg_remainder_G -= 1;
     }
+
     /* Looping in the opposite direction of the stream so to ensure that no new data gets interpreted as old */
     for(int i = 2*X_ELEMENTS - (x_segs_travelled + 1); i >= 0; i--) {
         stream[i + x_segs_travelled] = stream[i];
@@ -126,6 +139,7 @@ void cytoplasmicStream(std::array<double,2*X_ELEMENTS> &rho, std::array<double,2
         stream[i] = STREAM_CONC;
     }
 
+    double stream_delivery_vol = STREAM_DELIVERY_RATE * DT;
     for(int i = 0; i < 2*X_ELEMENTS; i++) {
         if(streamDelivers(i)) {
             if (stream[i] < STREAM_DELIVERY_RATE) {
